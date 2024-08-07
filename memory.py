@@ -44,7 +44,7 @@ class ConversationalMemoryClustering:
             mem_id.add(sim_mem_id)
             mem.append(json.loads(sim_mem_doc))
 
-        return mem
+        return mem[::-1]
 
 if __name__ == '__main__':
     embedding_model = 'nomic-embed-text:latest'

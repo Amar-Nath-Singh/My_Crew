@@ -19,9 +19,11 @@ class ChatAgents:
         mem = self.memory.retrive_memory(message)
         self.memory.ingest_conversation(message)
 
-        messages = self.system_message + mem + [message]
+        messages = self.system_message + mem
         msgs = "\n".join(list(map(str, messages)))
         print(f'{bcolors.OKBLUE} {msgs} {bcolors.ENDC}')
+        print(f'{bcolors.OKCYAN} {message} {bcolors.ENDC}')
+        messages.extend(message)
 
         resp_message = llm_client.chat(self.model, messages=messages, options = {"temperature": 0 })['message']
         self.memory.ingest_conversation(resp_message)
