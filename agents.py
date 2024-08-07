@@ -2,46 +2,121 @@ from memory import ConversationalMemoryClustering
 from config import *
 from utils import *
 
-class ChatAgents:
-    def __init__(self, model, name, role) -> None:
+class ChatAgent:
+    def __init__(self, model, name, role, memory = None, tools = None
+                 ) -> None:
         self.model = model
         self.role = role
         self.name = name
-        self.collection = memory_db_client.get_or_create_collection(f'{self.name}_mem')
-        self.memory = ConversationalMemoryClustering(collection=self.collection)
+        self.memory = memory
+        self.tools = tools
 
         self.system_message = [{
             'role':'system',
             'content': self.role,
         }]
 
-    def response(self, message):
-        mem = self.memory.retrive_memory(message)
-        self.memory.ingest_conversation(message)
+    def response(self, message, stream = False):
+        messages = self.system_message.copy()
+        if self.memory:
+            mem = self.memory.retrive_memory(message)
+            messages.extend(mem)
+            msgs = "\n".join(list(map(str, messages)))
+            print(f'{bcolors.OKBLUE} {msgs} {bcolors.ENDC}')
+        print(f'{self.name}: {bcolors.OKCYAN} {message} {bcolors.ENDC}')
+        messages.append(message)
 
-        messages = self.system_message + mem
-        msgs = "\n".join(list(map(str, messages)))
-        print(f'{bcolors.OKBLUE} {msgs} {bcolors.ENDC}')
-        print(f'{bcolors.OKCYAN} {message} {bcolors.ENDC}')
-        messages.extend(message)
+        response = llm_client.chat(self.model, 
+                                   messages=messages, 
+                                   tools = self.tools,
+                                   stream=stream,
+                                   options = {"temperature": 0 })
 
-        resp_message = llm_client.chat(self.model, messages=messages, options = {"temperature": 0 })['message']
-        self.memory.ingest_conversation(resp_message)
+        if self.memory:
+            resp_message = response['message']
+            self.memory.ingest_conversation(resp_message)
+            self.memory.ingest_conversation(message)
 
-        return resp_message
+        return response
 
+    async def response(self, message, stream = False):
+        messages = self.system_message.copy()
+        if self.memory:
+            mem = self.memory.retrive_memory(message)
+            messages.extend(mem)
+            msgs = "\n".join(list(map(str, messages)))
+            print(f'{bcolors.OKBLUE} {msgs} {bcolors.ENDC}')
+        print(f'{self.name}: {bcolors.OKCYAN} {message} {bcolors.ENDC}')
+        messages.append(message)
 
+        response = await llm_client_async.chat(self.model, 
+                                   messages=messages, 
+                                   tools = self.tools,
+                                   stream=stream,
+                                   options = {"temperature": 0 })
+
+        if self.memory:
+            resp_message = response['message']
+            self.memory.ingest_conversation(resp_message)
+            self.memory.ingest_conversation(message)
+
+        return response
+
+class Agent:
+    def __init__(self, model, name, role, format = '') -> None:
+        self.model = model
+        self.role = role
+        self.name = name
+        self.format = format
+        self.system_message = [{
+            'role':'system',
+            'content': self.role,
+        }]
+
+        self.context = None
+
+    def response(self, message, keep_context = False):
+        print(f'{self.name}: {bcolors.OKCYAN} {message} {bcolors.ENDC}')
+
+        resp_message = llm_client.generate(
+            model = self.model,
+            prompt = message,
+            system = self.role,
+            format = self.format,
+            context = self.context,
+            options = {"temperature": 0 })
+
+        if keep_context:
+            self.context = resp_message['context']
+        else:
+            self.context = None
+        
+        return resp_message['response']
+    
+    async def response_async(self, message, keep_context = False, stream = False):
+        print(f'{self.name}: {bcolors.OKCYAN} {message} {bcolors.ENDC}')
+
+        resp_message = await llm_client_async.generate(
+            model = self.model,
+            prompt = message,
+            system = self.role,
+            format = self.format,
+            context = self.context,
+            stream = stream,
+            options = {"temperature": 0 })
+
+        if keep_context:
+            self.context = resp_message['context']
+        else:
+            self.context = None
+        
+        return resp_message['response']
 
 if __name__ == '__main__':
-    agent = ChatAgents('llama3.1:8b-instruct-fp16', 'Writer', 'You are a excellent poem writer. You can only converse in poetic manner.')
+    agent = Agent(model = 'llama3.1:latest', name = 'Writer', role = 'You are a excellent poem writer. You can only converse in poetic manner.')
 
     while True:
-        inp_role = 'user'
         inp_content = input('content :')
         if inp_content == '/bye':
             break
-        message = {
-            'role' : inp_role,
-            'content' : inp_content,
-        }
-        print(f'{bcolors.OKGREEN} {agent.response(message)} {bcolors.ENDC}')
+        print(f'{bcolors.OKGREEN} {agent.response(inp_content)} {bcolors.ENDC}')
