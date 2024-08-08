@@ -1,35 +1,44 @@
-from memory import ConversationalMemoryClustering
 from config import *
 from utils import *
+from copy import deepcopy
+from prompts import *
 
 class ChatAgent:
     def __init__(self, model, name, role, memory = None, tools = None
                  ) -> None:
         self.model = model
         self.role = role
+
         self.name = name
         self.memory = memory
         self.tools = tools
 
+        system_prompt = self.role + \
+            ('\n' + TOOLUSAGE + '\n'.join([f'name: {tool.name}\nrole: {tool.role}' for tool in tools])) \
+                if self.tools else ''
+        
         self.system_message = [{
             'role':'system',
-            'content': self.role,
+            'content': system_prompt,
         }]
 
+
+
     def response(self, message, stream = False):
-        messages = self.system_message.copy()
+        messages = deepcopy(self.system_message)
         if self.memory:
             mem = self.memory.retrive_memory(message)
             messages.extend(mem)
             msgs = "\n".join(list(map(str, messages)))
             print(f'{bcolors.OKBLUE} {msgs} {bcolors.ENDC}')
+        
         print(f'{self.name}: {bcolors.OKCYAN} {message} {bcolors.ENDC}')
         messages.append(message)
-
+        
         response = llm_client.chat(self.model, 
-                                   messages=messages, 
+                                   messages = messages, 
                                    tools = self.tools,
-                                   stream=stream,
+                                   stream = stream,
                                    options = {"temperature": 0 })
 
         if self.memory:
@@ -39,7 +48,7 @@ class ChatAgent:
 
         return response
 
-    async def response(self, message, stream = False):
+    async def response_async(self, message, stream = False):
         messages = self.system_message.copy()
         if self.memory:
             mem = self.memory.retrive_memory(message)

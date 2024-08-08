@@ -2,7 +2,7 @@ import json
 from chromadb import Collection
 from config import *
 
-class ConversationalMemoryClustering:
+class ConversationalMemory:
     def __init__(self, collection : Collection) -> None:
         self.model = embedding_model
         self.collection = collection
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     collection_name = 'test_memory'
     
     collection = memory_db_client.get_or_create_collection(name=collection_name)
-    memory = ConversationalMemoryClustering(collection=collection)
+    memory = ConversationalMemory(collection=collection)
 
     while True:
         inp_role = input('role :')
