@@ -8,3 +8,15 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+def convert_to_xlam_tool(tools):
+    if isinstance(tools, dict):
+        return {
+            "name": tools["name"],
+            "description": tools["description"],
+            "parameters": {k: v for k, v in tools["parameters"].get("properties", {}).items()}
+        }
+    elif isinstance(tools, list):
+        return [convert_to_xlam_tool(tool) for tool in tools]
+    else:
+        return tools
